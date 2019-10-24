@@ -137,7 +137,8 @@ typedef enum {
   LJ_TRACE_START,	/* New trace started. */
   LJ_TRACE_END,		/* End of trace. */
   LJ_TRACE_ASM,		/* Assemble trace. */
-  LJ_TRACE_ERR		/* Trace aborted with error. */
+  LJ_TRACE_ERR,		/* Trace aborted with error. */
+  LJ_TRACE_XS = 0x20	/* External subroutine is called via FFI */
 } TraceState;
 
 /* Post-processing action. */

@@ -39,6 +39,12 @@ LJ_FUNCA void LJ_FASTCALL lj_trace_stitch(jit_State *J, const BCIns *pc);
 LJ_FUNCA int LJ_FASTCALL lj_trace_exit(jit_State *J, void *exptr);
 
 /* Signal asynchronous abort of trace or end of trace. */
+#define lj_trace_maskxs(L) \
+  (G2J(G(L))->state |= G2J(G(L))->state & LJ_TRACE_ACTIVE ? LJ_TRACE_XS : 0)
+
+#define lj_trace_unmaskxs(L) \
+  (G2J(G(L))->state &= G2J(G(L))->L == (L) ? ~LJ_TRACE_XS : 0)
+
 #define lj_trace_abort(g)	(G2J(g)->state &= ~LJ_TRACE_ACTIVE)
 #define lj_trace_end(J)		(J->state = LJ_TRACE_END)
 

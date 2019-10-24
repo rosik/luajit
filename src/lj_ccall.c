@@ -1147,7 +1147,9 @@ int lj_ccall_func(lua_State *L, GCcdata *cd)
     gcsteps = ccall_set_args(L, cts, ct, &cc);
     ct = (CType *)((intptr_t)ct-(intptr_t)cts->tab);
     cts->cb.slot = ~0u;
+    lj_trace_maskxs(L);
     lj_vm_ffi_call(&cc);
+    lj_trace_unmaskxs(L);
     if (cts->cb.slot != ~0u) {  /* Blacklist function that called a callback. */
       TValue tv;
       setlightudV(&tv, (void *)cc.func);
