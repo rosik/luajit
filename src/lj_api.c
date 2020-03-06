@@ -76,6 +76,28 @@ static GCtab *getcurrenv(lua_State *L)
   return fn->c.gct == ~LJ_TFUNC ? tabref(fn->c.env) : tabref(L->env);
 }
 
+static void call(lua_State *L, TValue *base, int nres) {
+  global_State *g = G(L);
+  if (tvref(g->jit_base)) {
+    setstrV(L, L->top++, lj_err_str(L, LJ_ERR_FFI_BADCBACK));
+    if (g->panic) g->panic(L);
+    exit(EXIT_FAILURE);
+  }
+  lj_trace_abort(g);  /* Never record across callback. */
+  lj_vm_call(L, base, nres);
+}
+
+static int pcall(lua_State *L, TValue *base, int nres, ptrdiff_t ef) {
+  global_State *g = G(L);
+  if (tvref(g->jit_base)) {
+    setstrV(L, L->top++, lj_err_str(L, LJ_ERR_FFI_BADCBACK));
+    if (g->panic) g->panic(L);
+    exit(EXIT_FAILURE);
+  }
+  lj_trace_abort(g);  /* Never record across callback. */
+  return lj_vm_pcall(L, base, nres, ef);
+}
+
 /* -- Miscellaneous API functions ----------------------------------------- */
 
 LUA_API int lua_status(lua_State *L)
@@ -300,7 +322,7 @@ LUA_API int lua_equal(lua_State *L, int idx1, int idx2)
       return (int)(uintptr_t)base;
     } else {
       L->top = base+2;
-      lj_vm_call(L, base, 1+1);
+      call(L, base, 1+1);
       L->top -= 2+LJ_FR2;
       return tvistruecond(L->top+1+LJ_FR2);
     }
@@ -323,7 +345,7 @@ LUA_API int lua_lessthan(lua_State *L, int idx1, int idx2)
       return (int)(uintptr_t)base;
     } else {
       L->top = base+2;
-      lj_vm_call(L, base, 1+1);
+      call(L, base, 1+1);
       L->top -= 2+LJ_FR2;
       return tvistruecond(L->top+1+LJ_FR2);
     }
@@ -775,7 +797,7 @@ LUA_API void lua_concat(lua_State *L, int n)
       }
       n -= (int)(L->top - top);
       L->top = top+2;
-      lj_vm_call(L, top, 1+1);
+      call(L, top, 1+1);
       L->top -= 1+LJ_FR2;
       copyTV(L, L->top-1, L->top+LJ_FR2);
     } while (--n > 0);
@@ -795,7 +817,7 @@ LUA_API void lua_gettable(lua_State *L, int idx)
   v = lj_meta_tget(L, t, L->top-1);
   if (v == NULL) {
     L->top += 2;
-    lj_vm_call(L, L->top-2, 1+1);
+    call(L, L->top-2, 1+1);
     L->top -= 2+LJ_FR2;
     v = L->top+1+LJ_FR2;
   }
@@ -811,7 +833,7 @@ LUA_API void lua_getfield(lua_State *L, int idx, const char *k)
   v = lj_meta_tget(L, t, &key);
   if (v == NULL) {
     L->top += 2;
-    lj_vm_call(L, L->top-2, 1+1);
+    call(L, L->top-2, 1+1);
     L->top -= 2+LJ_FR2;
     v = L->top+1+LJ_FR2;
   }
@@ -966,7 +988,7 @@ LUA_API void lua_settable(lua_State *L, int idx)
     TValue *base = L->top;
     copyTV(L, base+2, base-3-2*LJ_FR2);
     L->top = base+3;
-    lj_vm_call(L, base, 0+1);
+    call(L, base, 0+1);
     L->top -= 3+LJ_FR2;
   }
 }
@@ -987,7 +1009,7 @@ LUA_API void lua_setfield(lua_State *L, int idx, const char *k)
     TValue *base = L->top;
     copyTV(L, base+2, base-3-2*LJ_FR2);
     L->top = base+3;
-    lj_vm_call(L, base, 0+1);
+    call(L, base, 0+1);
     L->top -= 2+LJ_FR2;
   }
 }
@@ -1118,7 +1140,7 @@ LUA_API void lua_call(lua_State *L, int nargs, int nresults)
 {
   api_check(L, L->status == LUA_OK || L->status == LUA_ERRERR);
   api_checknelems(L, nargs+1);
-  lj_vm_call(L, api_call_base(L, nargs), nresults+1);
+  call(L, api_call_base(L, nargs), nresults+1);
 }
 
 LUA_API int lua_pcall(lua_State *L, int nargs, int nresults, int errfunc)
@@ -1136,7 +1158,7 @@ LUA_API int lua_pcall(lua_State *L, int nargs, int nresults, int errfunc)
     api_checkvalidindex(L, o);
     ef = savestack(L, o);
   }
-  status = lj_vm_pcall(L, api_call_base(L, nargs), nresults+1, ef);
+  status = pcall(L, api_call_base(L, nargs), nresults+1, ef);
   if (status) hook_restore(g, oldh);
   return status;
 }
@@ -1172,7 +1194,7 @@ LUALIB_API int luaL_callmeta(lua_State *L, int idx, const char *field)
     if (LJ_FR2) setnilV(top++);
     copyTV(L, top++, index2adr(L, idx));
     L->top = top;
-    lj_vm_call(L, top-1, 1+1);
+    call(L, top-1, 1+1);
     return 1;
   }
   return 0;
