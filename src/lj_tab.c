@@ -13,6 +13,7 @@
 #include "lj_gc.h"
 #include "lj_err.h"
 #include "lj_tab.h"
+#include <stdio.h>
 
 /* -- Object hashing ------------------------------------------------------ */
 
@@ -141,6 +142,8 @@ static GCtab *newtab(lua_State *L, uint32_t asize, uint32_t hbits)
   }
   if (hbits)
     newhpart(L, t, hbits);
+  // printf("-- lua_createtable (narr = %d, nrec = %d) -> %p;\n",
+  //   (uint32_t)(asize > 1 ? asize-1 : asize), 1 << hbits, t);
   return t;
 }
 

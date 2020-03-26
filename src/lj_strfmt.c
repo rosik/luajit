@@ -392,6 +392,51 @@ GCstr * LJ_FASTCALL lj_strfmt_obj(lua_State *L, cTValue *o)
     if (tvisfunc(o) && isffunc(funcV(o))) {
       p = lj_buf_wmem(p, "builtin#", 8);
       p = lj_strfmt_wint(p, funcV(o)->c.ffid);
+    } else if (tvistab(o)) {
+      p = lj_strfmt_wptr(p, lj_obj_ptr(o));
+      *p++ = '\0';
+      printf("-- %s\n", buf);
+
+      GCtab *t = tabV(o);
+      /* print array part */ {
+        uint32_t i, asize = t->asize;
+        printf("--  a[%d]: ", asize);
+        TValue *array = tvref(t->array);
+        for (i = 0; i < asize; i++) {
+          if (i>0) printf(", ");
+
+          cTValue *o = &array[i];
+          if (tvisstr(o)) printf("%s", strdata(strV(o)));
+          else if (tvisnum(o)) printf("%g", numV(o));
+          else if (tvisnil(o)) printf("nil");
+          else printf("?");
+        }
+        printf("\n");
+      }
+
+      /* print hashmap part */ {
+        uint32_t i, hmask = t->hmask;
+        printf("--  h[%d]: ", hmask+1);
+        Node *node = noderef(t->node);
+        for (i = 0; i <= hmask; i++) {
+          if (i>0) printf(", ");
+
+          Node *n = &node[i];
+          cTValue *k = &n->key;
+          cTValue *v = &n->val;
+
+          if (tvisstr(k)) printf("%s", strdata(strV(k)));
+          else if (tvisnum(k)) printf("%g", numV(k));
+          else if (tvisnil(k)) printf("nil");
+          else printf("?");
+          printf("=");
+          if (tvisstr(v)) printf("%s", strdata(strV(v)));
+          else if (tvisnum(v)) printf("%g", numV(v));
+          else if (tvisnil(v)) printf("nil");
+          else printf("?");
+        }
+        printf("\n");
+      }
     } else {
       p = lj_strfmt_wptr(p, lj_obj_ptr(o));
     }
